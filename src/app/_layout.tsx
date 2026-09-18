@@ -1,9 +1,9 @@
 import '@/global.css';
 
 import {
-  Fraunces_500Medium,
-  Fraunces_600SemiBold,
-  Fraunces_700Bold,
+    Fraunces_500Medium,
+    Fraunces_600SemiBold,
+    Fraunces_700Bold,
 } from '@expo-google-fonts/fraunces';
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from '@expo-google-fonts/outfit';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -53,6 +53,7 @@ const darkNavigationTheme: Theme = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const isLoggedIn = useAppStore((state) => state.isLoggedIn);
+  const onboardingCompleted = useAppStore((state) => state.onboardingCompleted);
   const [fontsLoaded, fontError] = useFonts({
     Outfit_400Regular,
     Outfit_500Medium,
@@ -79,6 +80,9 @@ export default function RootLayout() {
           <Stack.Protected guard={!isLoggedIn}>
             <Stack.Screen name="sign-in" />
             <Stack.Screen name="create-account" />
+          </Stack.Protected>
+          <Stack.Protected guard={isLoggedIn && !onboardingCompleted}>
+            <Stack.Screen name="onboarding" />
           </Stack.Protected>
           <Stack.Protected guard={isLoggedIn}>
             <Stack.Screen name="(tabs)" />

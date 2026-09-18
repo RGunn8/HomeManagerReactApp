@@ -6,11 +6,13 @@ import { useAppStore } from '@/store/use-app-store';
 
 export function useSignIn() {
   const markLoggedIn = useAppStore((state) => state.signIn);
+  const markOnboardingComplete = useAppStore((state) => state.completeOnboarding);
 
   return useMutation({
     mutationFn: (request: SignInRequest) => signIn(request),
     onSuccess: async (response) => {
       await saveSecureValue('auth-token', response.token);
+      markOnboardingComplete();
       markLoggedIn();
     },
   });

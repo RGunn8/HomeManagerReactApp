@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 
 export const Palette = {
   canvas: '#f6f2ea',
+  canvasTint: '#fbf7ef',
   card: '#fffaf3',
   hairline: '#e3dbcd',
   rowDivider: '#efe8db',
@@ -15,6 +16,8 @@ export const Palette = {
   sage: '#7a9a86',
   sageTint: '#eef2ea',
   clay: '#c46a48',
+  clayTint: '#fbeee7',
+  clayHairline: '#e7c9bb',
   clayLight: '#e8a184',
   cream: '#f4efe4',
   errorTint: '#f4dfd5',

@@ -1,4 +1,5 @@
 import { apiJson } from '@/lib/api-client';
+import { mockAuthResponse, USE_MOCK_API } from '@/lib/mock-api';
 
 export type SignInRequest = {
   email: string;
@@ -17,6 +18,10 @@ type AuthResponse = {
 };
 
 export function signIn(request: SignInRequest) {
+  if (USE_MOCK_API) {
+    return mockAuthResponse();
+  }
+
   return apiJson<AuthResponse>('/auth/sign-in', {
     method: 'POST',
     auth: false,
@@ -25,6 +30,10 @@ export function signIn(request: SignInRequest) {
 }
 
 export function createAccount(request: CreateAccountRequest) {
+  if (USE_MOCK_API) {
+    return mockAuthResponse();
+  }
+
   return apiJson<AuthResponse>('/auth/create-account', {
     method: 'POST',
     auth: false,

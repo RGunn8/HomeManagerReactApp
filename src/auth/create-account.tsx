@@ -57,6 +57,12 @@ export default function CreateAccount() {
     return () => clearTimeout(delayDebounceFn);
   }, [email]);
 
+  useEffect(() => {
+    if (createAccountMutation.isSuccess) {
+      router.replace('/onboarding');
+    }
+  }, [createAccountMutation.isSuccess]);
+
   return (
     <View className="flex-1 gap-4 bg-forest px-screen pt-safe-offset-screen dark:bg-forest-deep">
       <Pressable accessibilityRole="button" className="mt-14" onPress={onBackPress}>

@@ -6,6 +6,7 @@ module.exports = {
     extend: {
       colors: {
         canvas: '#f6f2ea',
+        'canvas-tint': '#fbf7ef',
         card: '#fffaf3',
         hairline: '#e3dbcd',
         'row-divider': '#efe8db',
@@ -22,6 +23,8 @@ module.exports = {
         clay: {
           DEFAULT: '#c46a48',
           light: '#e8a184',
+          tint: '#fbeee7',
+          hairline: '#e7c9bb',
         },
         sage: {
           DEFAULT: '#7a9a86',

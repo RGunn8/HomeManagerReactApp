@@ -42,6 +42,7 @@ export default function SignInScreen() {
         Tasks, rooms, inventory and shopping — shared with whoever lives there.
       </Text>
 
+
       <View className="mt-[38px] gap-3">
         <TextInput
           autoCapitalize="none"
