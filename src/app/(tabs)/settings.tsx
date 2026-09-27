@@ -15,10 +15,10 @@ export default function SettingsScreen() {
     <View className="flex-1 justify-center bg-canvas px-screen dark:bg-forest-deep">
       <View className="rounded-card border border-hairline bg-card p-5 dark:border-cream/20 dark:bg-cream/10">
         <Text className="font-serif-semibold text-[30px] leading-[34px] text-ink dark:text-cream">
-          Tab 2
+          Sign out
         </Text>
         <Text className="mt-3 font-sans text-[15px] leading-[23px] text-ink-muted dark:text-cream/70">
-          Use this second tab for profile, settings, or account actions.
+          Sign out of your account on this device.
         </Text>
 
         <Pressable

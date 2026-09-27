@@ -86,6 +86,10 @@ export default function RootLayout() {
           </Stack.Protected>
           <Stack.Protected guard={isLoggedIn}>
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="project-add" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="project-detail" />
+            <Stack.Screen name="room-add" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="room-detail" />
           </Stack.Protected>
         </Stack>
       </ThemeProvider>
