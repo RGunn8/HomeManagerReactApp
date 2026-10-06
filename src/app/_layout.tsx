@@ -6,15 +6,20 @@ import {
     Fraunces_700Bold,
 } from '@expo-google-fonts/fraunces';
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from '@expo-google-fonts/outfit';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from 'expo-font';
 import { Stack, ThemeProvider, type Theme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
+import { clearAuthToken } from '@/auth/auth-token';
+import { useSignOut } from '@/auth/hooks/use-sign-out';
 import { Colors } from '@/constants/theme';
-import { queryClient } from '@/lib/query-client';
+import { setUnauthorizedHandler } from '@/lib/api-client';
+import { persistOptions, queryClient } from '@/lib/query-client';
 import { useAppStore } from '@/store/use-app-store';
 
 SplashScreen.preventAutoHideAsync();
@@ -74,25 +79,72 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={colorScheme === 'dark' ? darkNavigationTheme : lightNavigationTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={!isLoggedIn}>
-            <Stack.Screen name="sign-in" />
-            <Stack.Screen name="create-account" />
-          </Stack.Protected>
-          <Stack.Protected guard={isLoggedIn && !onboardingCompleted}>
-            <Stack.Screen name="onboarding" />
-          </Stack.Protected>
-          <Stack.Protected guard={isLoggedIn}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="project-add" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="project-detail" />
-            <Stack.Screen name="room-add" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="room-detail" />
-          </Stack.Protected>
-        </Stack>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <KeyboardProvider>
+      <PersistQueryClientProvider
+        client={queryClient}
+        onSuccess={() => queryClient.resumePausedMutations()}
+        persistOptions={persistOptions}
+      >
+        <AuthTokenGuard />
+        <ThemeProvider value={colorScheme === 'dark' ? darkNavigationTheme : lightNavigationTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Protected guard={!isLoggedIn}>
+              <Stack.Screen name="sign-in" />
+              <Stack.Screen name="create-account" />
+            </Stack.Protected>
+            <Stack.Protected guard={isLoggedIn && !onboardingCompleted}>
+              <Stack.Screen name="onboarding" />
+            </Stack.Protected>
+            <Stack.Protected guard={isLoggedIn}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="inventory-add" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="inventory-detail" />
+              <Stack.Screen name="inventory-list" />
+              <Stack.Screen name="inventory-voice-entry" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="project-add" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="project-detail" />
+              <Stack.Screen name="room-add" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="room-detail" />
+              <Stack.Screen name="shopping-list-add" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="shopping-voice-entry" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="shopping-trip" />
+              <Stack.Screen name="shopping-trips" />
+              <Stack.Screen name="settings" />
+              <Stack.Screen name="task-detail" />
+              <Stack.Screen name="tasks" />
+            </Stack.Protected>
+          </Stack>
+        </ThemeProvider>
+      </PersistQueryClientProvider>
+      </KeyboardProvider>
+    </GestureHandlerRootView>
   );
+}
+
+/**
+ * Expired or revoked tokens send the user back to sign in, and a signed-out app holds no token.
+ * The iOS Keychain outlives an uninstall, so this also removes a token left over from a previous install.
+ */
+function AuthTokenGuard() {
+  const signOut = useSignOut();
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => void signOut());
+  }, [signOut]);
+
+  useEffect(() => {
+    const clearIfSignedOut = () => {
+      if (!useAppStore.getState().isLoggedIn) {
+        void clearAuthToken();
+      }
+    };
+
+    if (useAppStore.persist.hasHydrated()) {
+      clearIfSignedOut();
+    }
+    return useAppStore.persist.onFinishHydration(clearIfSignedOut);
+  }, []);
+
+  return null;
 }

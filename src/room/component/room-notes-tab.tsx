@@ -9,10 +9,10 @@ export type RoomNote = {
 
 type RoomNotesTabProps = {
     notes: RoomNote[];
-    onNotesChange: (notes: RoomNote[]) => void;
+    onAddNote: (text: string) => void;
 };
 
-export function RoomNotesTab({ notes, onNotesChange }: RoomNotesTabProps) {
+export function RoomNotesTab({ notes, onAddNote }: RoomNotesTabProps) {
     const [noteInput, setNoteInput] = useState('');
 
     const addNote = () => {
@@ -21,8 +21,7 @@ export function RoomNotesTab({ notes, onNotesChange }: RoomNotesTabProps) {
             return;
         }
 
-        const createdAt = Date.now();
-        onNotesChange([{ id: `${createdAt}`, text, createdAt }, ...notes]);
+        onAddNote(text);
         setNoteInput('');
     };
 

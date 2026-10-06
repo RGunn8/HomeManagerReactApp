@@ -12,7 +12,7 @@ export default function AppTabs() {
               <TabButton>Tab 1</TabButton>
             </TabTrigger>
             <TabTrigger name="tab-two" href="/settings" asChild>
-              <TabButton>Tab 2</TabButton>
+              <TabButton>Settings</TabButton>
             </TabTrigger>
           </View>
         </View>

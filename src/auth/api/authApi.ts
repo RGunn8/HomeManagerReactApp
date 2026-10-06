@@ -1,42 +1,21 @@
-import { apiJson } from '@/lib/api-client';
-import { mockAuthResponse, USE_MOCK_API } from '@/lib/mock-api';
+import { apiJson, jsonBody } from '@/lib/api-client';
+import type { AuthResponse, LoginRequest, SignupRequest } from '@/lib/api-types';
 
-export type SignInRequest = {
-  email: string;
-  password: string;
-};
-
-export type CreateAccountRequest = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-};
-
-type AuthResponse = {
-  token: string;
-};
+export type SignInRequest = LoginRequest;
+export type CreateAccountRequest = SignupRequest;
 
 export function signIn(request: SignInRequest) {
-  if (USE_MOCK_API) {
-    return mockAuthResponse();
-  }
-
-  return apiJson<AuthResponse>('/auth/sign-in', {
-    method: 'POST',
-    auth: false,
-    body: JSON.stringify(request),
-  });
+  return apiJson<AuthResponse>('/api/auth/login', { method: 'POST', auth: false, ...jsonBody(request) });
 }
 
 export function createAccount(request: CreateAccountRequest) {
-  if (USE_MOCK_API) {
-    return mockAuthResponse();
-  }
+  return apiJson<AuthResponse>('/api/auth/signup', { method: 'POST', auth: false, ...jsonBody(request) });
+}
 
-  return apiJson<AuthResponse>('/auth/create-account', {
-    method: 'POST',
-    auth: false,
-    body: JSON.stringify(request),
-  });
+export function deleteAccount() {
+  return apiJson<void>('/api/auth/me', { method: 'DELETE' });
+}
+
+export function demoSignIn() {
+  return apiJson<AuthResponse>('/api/auth/demo-login', { method: 'POST', auth: false });
 }

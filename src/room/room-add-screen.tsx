@@ -1,26 +1,24 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TopBarButton } from '@/components/top-bar-button';
+import { COMMON_ROOM_EMOJIS, isRoomEmoji } from '@/constants/room-emojis';
 import { RoomIconListItem } from '@/room/component/room-icon-list-item';
+import { useCreateRoom } from '@/room/hooks/use-rooms';
+import { toCreateTaskRequest } from '@/task/hooks/use-tasks';
 import { AddTasks, type AddedTask } from '@/task/component/add-tasks';
 
-const commonIcons = ['🛋️', '🍳', '🛏️', '🛁', '🚗', '🌱', '🧺'];
-const emojiOnlyPattern = /^(?:\p{Extended_Pictographic}|\p{Emoji_Component}|\uFE0F|\u200D)+$/u;
-
-function isEmoji(value: string) {
-	return emojiOnlyPattern.test(value.trim());
-}
-
 export function RoomAddScreen() {
+	const createRoom = useCreateRoom();
 	const [roomName, setRoomName] = useState('');
 	const [selectedIcon, setSelectedIcon] = useState('🏠');
 	const [customIcon, setCustomIcon] = useState('');
 	const [isChoosingCustomIcon, setIsChoosingCustomIcon] = useState(false);
 	const [tasks, setTasks] = useState<AddedTask[]>([]);
-	const canSave = roomName.trim().length > 0 && (!isChoosingCustomIcon || isEmoji(customIcon));
+	const canSave = roomName.trim().length > 0 && (!isChoosingCustomIcon || isRoomEmoji(customIcon));
 
 	const selectIcon = (icon: string) => {
 		setSelectedIcon(icon);
@@ -38,10 +36,10 @@ export function RoomAddScreen() {
 			return;
 		}
 
-		console.log('Save room:', {
+		createRoom.mutate({
 			name: roomName.trim(),
-			icon: isChoosingCustomIcon && isEmoji(customIcon) ? customIcon.trim() : selectedIcon,
-			tasks,
+			roomEmoji: isChoosingCustomIcon && isRoomEmoji(customIcon) ? customIcon.trim() : selectedIcon,
+			tasks: tasks.map((task) => toCreateTaskRequest({ name: task.name, detail: task.detail, dueDate: task.dueDate })),
 		});
 		router.back();
 	};
@@ -76,7 +74,7 @@ export function RoomAddScreen() {
 
 				<View className="mt-5 flex-row flex-wrap gap-3">
 					<RoomIconListItem icon="🏠" isSelected={selectedIcon === '🏠'} onPress={() => selectIcon('🏠')} />
-					{commonIcons.map((icon) => (
+					{COMMON_ROOM_EMOJIS.map((icon) => (
 						<RoomIconListItem
 							icon={icon}
 							key={icon}
@@ -100,13 +98,13 @@ export function RoomAddScreen() {
 						maxLength={8}
 						onChangeText={(value) => {
 							setCustomIcon(value);
-							setSelectedIcon(isEmoji(value) ? value.trim() : '…');
+							setSelectedIcon(isRoomEmoji(value) ? value.trim() : '…');
 						}}
 						placeholder="Choose an icon"
 						value={customIcon}
 					/>
 				)}
-				{isChoosingCustomIcon && customIcon.trim().length > 0 && !isEmoji(customIcon) && (
+				{isChoosingCustomIcon && customIcon.trim().length > 0 && !isRoomEmoji(customIcon) && (
 					<Text accessibilityRole="alert" className="mt-2 font-sans text-[14px] text-overdue">
 						Please pick an emoji.
 					</Text>

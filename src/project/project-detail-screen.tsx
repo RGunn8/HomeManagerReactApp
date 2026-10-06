@@ -1,62 +1,75 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CalendarDatePickerField } from '@/components/calendar-date-picker-field';
+import { ItemAutocompleteField } from '@/components/item-autocomplete-field';
 import { TitleText } from '@/components/title-text';
 import { TopBarButton } from '@/components/top-bar-button';
+import { useInventory } from '@/inventory/hooks/use-inventory';
 import ProjectDetailCard from '@/project/compoment/project-detail-card';
-import { ProjectTaskListItem, type ProjectTask } from '@/project/component/project-task-list-item';
+import { useCreateProjectMaterial, useProject, useUpdateProject } from '@/project/hooks/use-projects';
+import { toHomeProject } from '@/project/project-model';
+import { useAddToShoppingList, useShoppingTrips } from '@/shopping/hooks/use-shopping';
+import { useCreateTask, useSetTaskCompleted, useTasks } from '@/task/hooks/use-tasks';
+import { toAddedTask } from '@/task/task-model';
+import { sameId, useResolvedId } from '@/lib/offline/temp-ids';
+import { AddTasks, type AddedTask } from '@/task/component/add-tasks';
 
 type ProjectMaterial = {
 	id: string;
 	name: string;
+	quantity: number;
 	price?: number;
+	inventoryItemId?: string;
 };
 
-const startingTasks: ProjectTask[] = [
-	{ id: 'measure', title: 'Measure the kitchen walls', dueDate: 'Oct 2', completed: true },
-	{ id: 'choose-tile', title: 'Choose backsplash tile', dueDate: 'Oct 4', completed: false },
-	{ id: 'order-faucet', title: 'Order a new faucet', dueDate: 'Oct 6', completed: false },
-	{ id: 'clear-cabinets', title: 'Clear the lower cabinets', dueDate: 'Oct 8', completed: false },
-	{ id: 'install-shelves', title: 'Install open shelves', dueDate: 'Oct 10', completed: false },
-];
-
-const projectMaterials: ProjectMaterial[] = [
-	{ id: 'tile', name: 'Ceramic backsplash tile', price: 186 },
-	{ id: 'faucet', name: 'Brushed steel faucet', price: 145 },
-	{ id: 'grout', name: 'Tile grout' },
-];
+type ProjectDetailTab = 'tasks' | 'materials';
 
 export function ProjectDetailScreen() {
-	const { title, room, dueDate, totalBudget: totalBudgetParam, spentBudget: spentBudgetParam } = useLocalSearchParams<{
+	const { projectId: projectIdParam, title: titleParam } = useLocalSearchParams<{
+		projectId?: string;
 		title?: string;
-		room?: string;
-		dueDate?: string;
-		totalBudget?: string;
-		spentBudget?: string;
 	}>();
-	const initialTotalBudget = Number(totalBudgetParam);
-	const initialSpentBudget = Number(spentBudgetParam);
-	const [totalBudget, setTotalBudget] = useState(Number.isFinite(initialTotalBudget) ? initialTotalBudget : 1200);
-	const [spentBudget, setSpentBudget] = useState(Number.isFinite(initialSpentBudget) ? initialSpentBudget : 460);
+	const projectId = useResolvedId(projectIdParam);
+	const { data: apiProject } = useProject(projectId);
+	const project = apiProject ? toHomeProject(apiProject) : undefined;
+	const title = project?.title ?? titleParam;
+	const room = project?.room;
+	const dueDate = project?.dueDate;
+	const totalBudget = project?.totalBudget ?? 0;
+	const spentBudget = project?.spentBudget ?? 0;
+	const updateProject = useUpdateProject();
+	const { data: allTasks = [] } = useTasks();
+	const createTask = useCreateTask();
+	const setTaskCompleted = useSetTaskCompleted();
+	const { data: inventoryItems = [] } = useInventory();
+	const { data: trips = [] } = useShoppingTrips();
+	const addToShoppingList = useAddToShoppingList();
 	const [isEditingBudget, setIsEditingBudget] = useState(false);
-	const [budgetInput, setBudgetInput] = useState(String(Number.isFinite(initialTotalBudget) ? initialTotalBudget : 1200));
-	const [spentInput, setSpentInput] = useState(String(Number.isFinite(initialSpentBudget) ? initialSpentBudget : 460));
-	const [tasks, setTasks] = useState(startingTasks);
-	const [materials, setMaterials] = useState(projectMaterials);
-	const [showAllTasks, setShowAllTasks] = useState(false);
-	const [isAddingTask, setIsAddingTask] = useState(false);
-	const [newTaskTitle, setNewTaskTitle] = useState('');
-	const [newTaskDueDate, setNewTaskDueDate] = useState<Date | null>(null);
+	const [budgetInput, setBudgetInput] = useState('');
+	const [spentInput, setSpentInput] = useState('');
+	const tasks = useMemo<AddedTask[]>(
+		() => allTasks.filter((task) => sameId(task.projectId, projectId)).map(toAddedTask),
+		[allTasks, projectId],
+	);
+	const createMaterial = useCreateProjectMaterial();
+	const materials = useMemo<ProjectMaterial[]>(() => (apiProject?.materials ?? []).map((material) => ({
+		id: material.id,
+		name: material.name,
+		quantity: material.quantity,
+		...(material.unitCost !== null ? { price: material.unitCost } : {}),
+	})), [apiProject?.materials]);
+	const [activeTab, setActiveTab] = useState<ProjectDetailTab>('tasks');
 	const [isAddingMaterial, setIsAddingMaterial] = useState(false);
 	const [newMaterialName, setNewMaterialName] = useState('');
+	const [newMaterialQuantity, setNewMaterialQuantity] = useState('1');
 	const [newMaterialPrice, setNewMaterialPrice] = useState('');
+	const [selectedMaterialInventoryId, setSelectedMaterialInventoryId] = useState<string | null>(null);
 
-	const completedTaskCount = tasks.filter((task) => task.completed).length;
-	const visibleTasks = showAllTasks ? tasks : tasks.slice(0, 3);
-	const nextTask = useMemo(() => tasks.find((task) => !task.completed), [tasks]);
+	const completedTaskCount = tasks.filter((task) => task.checked).length;
+	const nextTask = useMemo(() => tasks.find((task) => !task.checked), [tasks]);
 
 	const saveBudget = () => {
 		const nextTotalBudget = Number(budgetInput);
@@ -65,58 +78,53 @@ export function ProjectDetailScreen() {
 			return;
 		}
 
-		setTotalBudget(nextTotalBudget);
-		setSpentBudget(nextSpentBudget);
-		setIsEditingBudget(false);
-	};
-
-	const toggleTask = (taskId: string, completed: boolean) => {
-		setTasks((currentTasks) => currentTasks.map((task) => task.id === taskId ? { ...task, completed } : task));
-	};
-
-	const addTask = () => {
-		const trimmedTitle = newTaskTitle.trim();
-		if (!trimmedTitle) {
-			return;
+		if (projectId) {
+			updateProject.mutate({ projectId, estimatedCost: nextTotalBudget, actualCost: nextSpentBudget });
 		}
-
-		setTasks((currentTasks) => [
-			...currentTasks,
-			{
-				id: `${Date.now()}`,
-				title: trimmedTitle,
-				dueDate: newTaskDueDate?.toLocaleDateString(),
-				completed: false,
-			},
-		]);
-		setNewTaskTitle('');
-		setNewTaskDueDate(null);
-		setIsAddingTask(false);
-		setShowAllTasks(true);
+		setIsEditingBudget(false);
 	};
 
 	const addMaterial = () => {
 		const trimmedName = newMaterialName.trim();
+		const quantity = Number(newMaterialQuantity);
 		if (!trimmedName) {
 			return;
 		}
 
-		const parsedPrice = newMaterialPrice.trim() ? Number(newMaterialPrice) : undefined;
+		if (!Number.isInteger(quantity) || quantity < 1) {
+			return;
+		}
+		const inventoryItem = inventoryItems.find((item) => item.id === selectedMaterialInventoryId)
+			?? inventoryItems.find((item) => item.name.trim().toLowerCase() === trimmedName.toLowerCase());
+		const parsedPrice = newMaterialPrice.trim() ? Number(newMaterialPrice) : inventoryItem?.price;
 		if (parsedPrice !== undefined && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
 			return;
 		}
 
-		setMaterials((currentMaterials) => [
-			...currentMaterials,
-			{
-				id: `${Date.now()}`,
+		if (projectId) {
+			createMaterial.mutate({
+				projectId,
 				name: trimmedName,
-				...(parsedPrice !== undefined ? { price: parsedPrice } : {}),
-			},
-		]);
+				quantity,
+				...(parsedPrice !== undefined ? { unitCost: parsedPrice } : {}),
+			});
+		}
 		setNewMaterialName('');
+		setNewMaterialQuantity('1');
 		setNewMaterialPrice('');
+		setSelectedMaterialInventoryId(null);
 		setIsAddingMaterial(false);
+	};
+
+	const addMaterialToList = (material: ProjectMaterial) => {
+		const inventoryItem = inventoryItems.find((item) => item.id === material.inventoryItemId)
+			?? inventoryItems.find((item) => item.name.trim().toLowerCase() === material.name.trim().toLowerCase());
+		const quantityToBuy = Math.max(0, material.quantity - (inventoryItem?.quantity ?? 0));
+		if (quantityToBuy === 0) return;
+		addToShoppingList.mutate(
+			[{ name: material.name, quantity: quantityToBuy, price: material.price }],
+			`${title ?? 'Project'} materials`,
+		);
 	};
 
 	return (
@@ -144,8 +152,8 @@ export function ProjectDetailScreen() {
 				</View>
 
 				<ProjectDetailCard
-					nextUpTasks={nextTask?.title}
-					nextUpTasksDueDate={nextTask?.dueDate}
+					nextUpTasks={nextTask?.name}
+					nextUpTasksDueDate={nextTask?.date}
 					numberOfTasks={tasks.length}
 					spentBudget={spentBudget}
 					onEditBudget={() => {
@@ -190,58 +198,41 @@ export function ProjectDetailScreen() {
 					</View>
 				)}
 
-				{tasks.length > 0 ? (
+				<View className="mt-1 flex-row rounded-button bg-sage-tint p-1">
+					{(['tasks', 'materials'] as ProjectDetailTab[]).map((tab) => (
+						<Pressable
+							accessibilityRole="tab"
+							accessibilityState={{ selected: activeTab === tab }}
+							className={`flex-1 items-center rounded-button px-2 py-2 ${activeTab === tab ? 'bg-forest' : 'bg-transparent'}`}
+							key={tab}
+							onPress={() => setActiveTab(tab)}
+						>
+							<Text className={`font-sans-semibold text-[14px] capitalize ${activeTab === tab ? 'text-white' : 'text-ink-muted'}`}>
+								{tab}
+							</Text>
+						</Pressable>
+					))}
+				</View>
+
+				{activeTab === 'tasks' && (
 					<View className="gap-3">
-						<View className="flex-row items-center justify-between">
-							<Text className="font-serif-semibold text-[24px] text-ink">Tasks</Text>
-							<View className="flex-row items-center gap-2">
-								<Pressable
-									accessibilityRole="button"
-									accessibilityState={{ expanded: showAllTasks }}
-									className="flex-row items-center gap-1 rounded-button px-2 py-2"
-									onPress={() => setShowAllTasks((current) => !current)}
-								>
-									<Text className="font-sans-semibold text-[14px] text-forest">All {tasks.length}</Text>
-									<Text className="text-[16px] text-forest">{showAllTasks ? '⌃' : '⌄'}</Text>
-								</Pressable>
-								<Pressable
-									accessibilityRole="button"
-									className="rounded-button bg-forest px-3 py-2"
-									onPress={() => setIsAddingTask((current) => !current)}
-								>
-									<Text className="font-sans-semibold text-[14px] text-white">+ Add</Text>
-								</Pressable>
-							</View>
-						</View>
-
-						<View className="overflow-hidden rounded-card border border-hairline bg-white">
-							{visibleTasks.map((task, index) => (
-								<View className={index < visibleTasks.length - 1 ? 'border-b border-row-divider' : ''} key={task.id}>
-									<ProjectTaskListItem onToggle={toggleTask} task={task} />
-								</View>
-							))}
-						</View>
-
-						{isAddingTask && (
-											<View className="gap-2 rounded-card border border-hairline bg-white p-3">
-								<TextInput
-									accessibilityLabel="New project task"
-									autoFocus
-													className="h-[48px] rounded-input border border-hairline bg-white px-4 font-sans text-[15px] text-ink placeholder:text-ink-faint"
-									onChangeText={setNewTaskTitle}
-													returnKeyType="next"
-									placeholder="Task name"
-									value={newTaskTitle}
-								/>
-												<CalendarDatePickerField onChange={setNewTaskDueDate} value={newTaskDueDate} />
-												<Pressable accessibilityRole="button" className="items-center justify-center self-end rounded-button bg-forest px-4 py-2" onPress={addTask}>
-													<Text className="font-sans-semibold text-[14px] text-white">Add task</Text>
-												</Pressable>
-							</View>
-						)}
+						<Text className="font-serif-semibold text-[24px] text-ink">Tasks</Text>
+						<AddTasks
+							onAddTask={(task) => createTask.mutate({
+								name: task.name,
+								detail: task.detail,
+								dueDate: task.dueDate,
+								projectId,
+								roomId: project?.roomId,
+							})}
+							onTaskCheckedChange={(task, checked) => task.id && setTaskCompleted.mutate({ taskId: task.id, checked })}
+							roomName={room}
+							tasks={tasks}
+						/>
 					</View>
-				) : null}
+				)}
 
+				{activeTab === 'materials' && (
 				<View className="gap-3">
 					<View className="flex-row items-center justify-between">
 						<Text className="font-serif-semibold text-[24px] text-ink">Materials</Text>
@@ -255,17 +246,31 @@ export function ProjectDetailScreen() {
 					</View>
 					{isAddingMaterial && (
 						<View className="gap-2 rounded-card border border-hairline bg-white p-3">
-							<TextInput
+							<ItemAutocompleteField
 								accessibilityLabel="Material name"
 								autoFocus
-								className="h-[46px] rounded-input border border-hairline bg-white px-3 font-sans text-[15px] text-ink placeholder:text-ink-faint"
-								onChangeText={setNewMaterialName}
-								onSubmitEditing={addMaterial}
-								placeholder="Item name"
-								returnKeyType="next"
+								onChangeText={(value) => {
+									setNewMaterialName(value);
+									setSelectedMaterialInventoryId(null);
+								}}
+								onSelectSuggestion={(suggestion) => {
+									setNewMaterialName(suggestion.name);
+									setSelectedMaterialInventoryId(suggestion.id);
+									setNewMaterialPrice(suggestion.price === undefined ? '' : String(suggestion.price));
+								}}
+								placeholder="Search or add a material"
+								suggestions={inventoryItems}
 								value={newMaterialName}
 							/>
 							<View className="flex-row gap-2">
+								<TextInput
+									accessibilityLabel="Material quantity"
+									className="h-[46px] w-20 rounded-input border border-hairline bg-white px-3 text-center font-sans text-[15px] text-ink"
+									keyboardType="number-pad"
+									onChangeText={(value) => /^\d*$/.test(value) && setNewMaterialQuantity(value)}
+									placeholder="Qty"
+									value={newMaterialQuantity}
+								/>
 								<TextInput
 									accessibilityLabel="Optional material price"
 									className="h-[46px] flex-1 rounded-input border border-hairline bg-white px-3 font-sans text-[15px] text-ink placeholder:text-ink-faint"
@@ -276,23 +281,49 @@ export function ProjectDetailScreen() {
 									returnKeyType="done"
 									value={newMaterialPrice}
 								/>
-								<Pressable accessibilityRole="button" className="items-center justify-center rounded-button bg-forest px-4" onPress={addMaterial}>
-									<Text className="font-sans-semibold text-[14px] text-white">Add</Text>
-								</Pressable>
 							</View>
+							<Pressable accessibilityRole="button" className="self-end rounded-button bg-forest px-4 py-2" onPress={addMaterial}>
+								<Text className="font-sans-semibold text-[14px] text-white">Add material</Text>
+							</Pressable>
 						</View>
 					)}
 					<View className="overflow-hidden rounded-card border border-hairline bg-white">
-						{materials.map((material, index) => (
-							<View className={`flex-row items-center justify-between px-4 py-3 ${index < materials.length - 1 ? 'border-b border-row-divider' : ''}`} key={material.id}>
-								<Text className="flex-1 font-sans-semibold text-[15px] text-ink">{material.name}</Text>
-								{material.price !== undefined ? (
-									<Text className="ml-3 font-sans text-[14px] text-ink-muted">${material.price.toFixed(2)}</Text>
-								) : null}
-							</View>
-						))}
+						{materials.map((material, index) => {
+							const inventoryItem = inventoryItems.find((item) => item.id === material.inventoryItemId)
+								?? inventoryItems.find((item) => item.name.trim().toLowerCase() === material.name.trim().toLowerCase());
+							const quantityToBuy = Math.max(0, material.quantity - (inventoryItem?.quantity ?? 0));
+							const shoppingTrip = trips.find((trip) => trip.status !== 'past'
+								&& trip.items?.some((item) => item.name.trim().toLowerCase() === material.name.trim().toLowerCase()));
+
+							return (
+								<View className={`gap-1 px-4 py-3 ${index < materials.length - 1 ? 'border-b border-row-divider' : ''}`} key={material.id}>
+									<View className="flex-row items-center justify-between">
+										<Text className="flex-1 font-sans-semibold text-[15px] text-ink">{material.name}</Text>
+										{material.price !== undefined ? (
+											<Text className="ml-3 font-sans text-[14px] text-ink-muted">${material.price.toFixed(2)}</Text>
+										) : null}
+									</View>
+									<Text className="font-sans text-[13px] text-ink-muted">
+										Needed {material.quantity} · In stock {inventoryItem?.quantity ?? 0}
+									</Text>
+									{quantityToBuy > 0 ? shoppingTrip ? (
+										<Text className="font-sans text-[12px] text-forest">On {shoppingTrip.title}</Text>
+									) : (
+										<Pressable
+											accessibilityLabel={`Add ${quantityToBuy} ${material.name} to shopping list`}
+											accessibilityRole="button"
+											className="self-start rounded-button bg-sage-tint px-3 py-2"
+											onPress={() => addMaterialToList(material)}
+										>
+											<Text className="font-sans-semibold text-[13px] text-forest">Add {quantityToBuy} to list</Text>
+										</Pressable>
+									) : null}
+								</View>
+							);
+						})}
 					</View>
 				</View>
+				)}
 			</ScrollView>
 			</KeyboardAvoidingView>
 		</SafeAreaView>

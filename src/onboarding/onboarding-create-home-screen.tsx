@@ -1,9 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { createHome } from '@/onboarding/api/onboardingApi';
+import { getRoomEmoji } from '@/constants/room-emojis';
+import { useCreateHome } from '@/home/hooks/use-home';
 import { OnboardingHomeTextField } from '@/onboarding/components/onboarding-home-text-field';
 import OnboardingRoomListItem from '@/onboarding/components/onboarding-room-list-item';
 import { OnboardingRoomPill } from '@/onboarding/components/onboarding-room-pill';
@@ -11,6 +13,9 @@ import { OnboardingStep } from '@/onboarding/components/onboarding-step';
 import { OnboardingTitle } from '@/onboarding/components/onboarding-title';
 import { getDefaultTasks, suggestedRooms } from '@/onboarding/const/onboarding-constants';
 import { useAppStore } from '@/store/use-app-store';
+import { createRoom } from '@/room/api/room-api';
+import { updateTask } from '@/task/api/task-api';
+import { toCreateTaskRequest } from '@/task/hooks/use-tasks';
 import { TaskListItem } from '@/task/component/task-list-item';
 
 type RoomTask = { name: string; interval?: string; checked: boolean };
@@ -26,6 +31,8 @@ export default function OnboardingCreateHomeScreen() {
 	const [openRooms, setOpenRooms] = useState<Record<string, boolean>>({});
 	const [customTasks, setCustomTasks] = useState<Record<string, string>>({});
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [errorMessage, setErrorMessage] = useState('');
+	const createHome = useCreateHome();
 
 	function toggleRoom(roomName: string) {
 		setRooms((currentRooms) => {
@@ -87,20 +94,26 @@ export default function OnboardingCreateHomeScreen() {
 		}
 
 		setIsSubmitting(true);
+		setErrorMessage('');
 
 		try {
-			await createHome({
-				name: homeName.trim(),
-				rooms,
-				tasks: Object.fromEntries(
-					Object.entries(roomTasks).map(([roomName, tasks]) => [
-						roomName,
-						tasks.map(({ name, interval, checked }) => ({ name, interval, completed: checked })),
-					]),
-				),
-			});
+			const home = await createHome.mutateAsync(homeName.trim());
+			for (const roomName of rooms) {
+				const tasks = roomTasks[roomName] ?? [];
+				const room = await createRoom(home.id, {
+					name: roomName,
+					roomEmoji: getRoomEmoji(roomName),
+					tasks: tasks.map((task) => toCreateTaskRequest({ name: task.name, detail: task.interval })),
+				});
+				const completedTitles = new Set(tasks.filter((task) => task.checked).map((task) => task.name));
+				await Promise.all(room.tasks
+					.filter((task) => completedTitles.has(task.title))
+					.map((task) => updateTask(home.id, task.id, { status: 'DONE' })));
+			}
 			completeOnboarding();
 			router.replace('/(tabs)');
+		} catch (error) {
+			setErrorMessage(error instanceof Error ? error.message : 'Could not create your home. Please try again.');
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -230,6 +243,9 @@ export default function OnboardingCreateHomeScreen() {
 							<Text className="font-sans-semibold text-[16px] text-forest">Back</Text>
 						</Pressable>
 					)}
+					{errorMessage ? (
+						<Text accessibilityRole="alert" className="mb-3 text-center font-sans text-[14px] text-overdue">{errorMessage}</Text>
+					) : null}
 					<Pressable
 						accessibilityRole="button"
 						className="h-[54px] items-center justify-center rounded-button bg-forest active:opacity-80 disabled:opacity-50"

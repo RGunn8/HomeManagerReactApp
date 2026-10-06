@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -8,17 +9,26 @@ import { parseNaturalLanguageTask, type ParsedTask } from '@/task/parse-task';
 type IntervalUnit = 'day' | 'week' | 'month' | 'year';
 
 export type AddedTask = ParsedTask & {
+    id?: string;
+    notes?: string;
     checked: boolean;
     date?: string;
+    dueDate?: Date;
 };
 
 type AddTasksProps = {
     initialTasks?: AddedTask[];
+    roomName?: string;
     onTasksChange?: (tasks: AddedTask[]) => void;
+    /** Pass `tasks` with the callbacks below to let the parent own the list (e.g. tasks saved to the API). */
+    tasks?: AddedTask[];
+    onAddTask?: (task: AddedTask) => void;
+    onTaskCheckedChange?: (task: AddedTask, checked: boolean) => void;
 };
 
-export function AddTasks({ initialTasks = [], onTasksChange }: AddTasksProps) {
-    const [tasks, setTasks] = useState<AddedTask[]>(initialTasks);
+export function AddTasks({ initialTasks = [], roomName, onTasksChange, tasks: controlledTasks, onAddTask, onTaskCheckedChange }: AddTasksProps) {
+    const [localTasks, setTasks] = useState<AddedTask[]>(initialTasks);
+    const tasks = controlledTasks ?? localTasks;
     const [taskTitle, setTaskTitle] = useState('');
     const [intervalCount, setIntervalCount] = useState('');
     const [intervalUnit, setIntervalUnit] = useState<IntervalUnit>('day');
@@ -34,20 +44,31 @@ export function AddTasks({ initialTasks = [], onTasksChange }: AddTasksProps) {
     };
 
     const addTask = () => {
+        const trimmedTitle = taskTitle.trim();
+        if (!trimmedTitle) {
+            return;
+        }
+
         const naturalLanguageTask = repeats && intervalCount.trim()
-            ? `${taskTitle} every ${intervalCount} ${intervalUnit}`
-            : taskTitle;
+            ? `${trimmedTitle} every ${intervalCount} ${intervalUnit}`
+            : trimmedTitle;
         const parsedTask = parseNaturalLanguageTask(naturalLanguageTask);
 
         if (!parsedTask) {
             return;
         }
 
-        updateTasks((currentTasks) => [...currentTasks, {
+        const newTask: AddedTask = {
             ...parsedTask,
             checked: false,
             date: scheduledDate ? scheduledDate.toLocaleDateString() : undefined,
-        }]);
+            dueDate: scheduledDate ?? undefined,
+        };
+        if (onAddTask) {
+            onAddTask(newTask);
+        } else {
+            updateTasks((currentTasks) => [...currentTasks, newTask]);
+        }
         setTaskTitle('');
         setIntervalCount('');
         setRepeats(false);
@@ -55,6 +76,10 @@ export function AddTasks({ initialTasks = [], onTasksChange }: AddTasksProps) {
     };
 
     const updateTaskChecked = (index: number, checked: boolean) => {
+        if (onTaskCheckedChange) {
+            onTaskCheckedChange(tasks[index], checked);
+            return;
+        }
         updateTasks((currentTasks) => currentTasks.map((task, taskIndex) => taskIndex === index ? { ...task, checked } : task));
     };
 
@@ -64,11 +89,22 @@ export function AddTasks({ initialTasks = [], onTasksChange }: AddTasksProps) {
                 <TaskListItem
                     checked={task.checked}
                     divided
-                    key={`${task.name}-${index}`}
+                    key={task.id ?? `${task.name}-${index}`}
                     onChange={(checked) => updateTaskChecked(index, checked)}
                     taskDate={task.date}
                     taskDetail={task.detail}
                     taskName={task.name}
+                    onClick={() => router.push({
+                        pathname: '/task-detail',
+                        params: {
+                            taskId: task.id,
+                            taskName: task.name,
+                            taskDate: task.dueDate?.toISOString() ?? task.date,
+                            taskDetail: task.detail,
+                            note: task.notes,
+                            roomName,
+                        },
+                    })}
                 />
             ))}
             <AddTaskListItem

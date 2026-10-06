@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
+import { ItemAutocompleteField } from '@/components/item-autocomplete-field';
+import { useInventory } from '@/inventory/hooks/use-inventory';
 import { RoomInventoryListItem } from '@/room/component/room-inventory-list-item';
 
 export type RoomItem = {
@@ -13,11 +15,13 @@ export type RoomItem = {
 
 type RoomItemsTabProps = {
     items: RoomItem[];
-    onItemsChange: (items: RoomItem[]) => void;
+    onAddItem: (name: string) => void;
+    onAddToShoppingList: (itemIds: string[]) => void;
     onQuantityChange: (itemId: string, change: number) => void;
 };
 
-export function RoomItemsTab({ items, onItemsChange, onQuantityChange }: RoomItemsTabProps) {
+export function RoomItemsTab({ items, onAddItem, onAddToShoppingList, onQuantityChange }: RoomItemsTabProps) {
+    const { data: inventoryItems = [] } = useInventory();
     const [isSelectingItems, setIsSelectingItems] = useState(false);
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
     const [isAddingItem, setIsAddingItem] = useState(false);
@@ -25,10 +29,11 @@ export function RoomItemsTab({ items, onItemsChange, onQuantityChange }: RoomIte
     const lowItems = useMemo(() => items.filter((item) => item.low), [items]);
     const regularItems = useMemo(() => items.filter((item) => !item.low), [items]);
 
+    // The API has no endpoint to remove a shopping list item, so this only adds.
     const toggleShoppingList = (itemId: string) => {
-        onItemsChange(items.map((item) => item.id === itemId
-            ? { ...item, inShoppingList: !item.inShoppingList }
-            : item));
+        if (!items.find((item) => item.id === itemId)?.inShoppingList) {
+            onAddToShoppingList([itemId]);
+        }
     };
 
     const toggleItemSelection = (itemId: string) => {
@@ -38,9 +43,7 @@ export function RoomItemsTab({ items, onItemsChange, onQuantityChange }: RoomIte
     };
 
     const addSelectedItemsToShoppingList = () => {
-        onItemsChange(items.map((item) => selectedItemIds.includes(item.id)
-            ? { ...item, inShoppingList: true }
-            : item));
+        onAddToShoppingList(selectedItemIds.filter((id) => !items.find((item) => item.id === id)?.inShoppingList));
         setSelectedItemIds([]);
         setIsSelectingItems(false);
     };
@@ -51,13 +54,9 @@ export function RoomItemsTab({ items, onItemsChange, onQuantityChange }: RoomIte
             return;
         }
 
-        onItemsChange([...items, {
-            id: `${Date.now()}`,
-            name,
-            quantity: 1,
-            low: false,
-            inShoppingList: false,
-        }]);
+        if (!items.some((item) => item.name.trim().toLowerCase() === name.toLowerCase())) {
+            onAddItem(name);
+        }
         setNewItemName('');
         setIsAddingItem(false);
     };
@@ -119,20 +118,23 @@ export function RoomItemsTab({ items, onItemsChange, onQuantityChange }: RoomIte
                     </Pressable>
                 </View>
                 {isAddingItem && (
-                    <View className="flex-row gap-2">
-                        <TextInput
-                            accessibilityLabel="New inventory item"
-                            autoFocus
-                            className="h-11 flex-1 rounded-input border border-hairline bg-white px-3 font-sans text-[15px] text-ink placeholder:text-ink-faint"
-                            onChangeText={setNewItemName}
-                            onSubmitEditing={addItem}
-                            placeholder="Item name"
-                            returnKeyType="done"
-                            value={newItemName}
-                        />
-                        <Pressable accessibilityRole="button" className="items-center justify-center rounded-button bg-forest px-4" onPress={addItem}>
-                            <Text className="font-sans-semibold text-[14px] text-white">Add</Text>
-                        </Pressable>
+                    <View className="gap-2">
+                        <View className="flex-row items-start gap-2">
+                            <View className="flex-1">
+                                <ItemAutocompleteField
+                                    accessibilityLabel="New inventory item"
+                                    autoFocus
+                                    onChangeText={setNewItemName}
+                                    onSelectSuggestion={(suggestion) => setNewItemName(suggestion.name)}
+                                    placeholder="Search or add an item"
+                                    suggestions={inventoryItems}
+                                    value={newItemName}
+                                />
+                            </View>
+                            <Pressable accessibilityRole="button" className="h-11 items-center justify-center rounded-button bg-forest px-4" onPress={addItem}>
+                                <Text className="font-sans-semibold text-[14px] text-white">Add</Text>
+                            </Pressable>
+                        </View>
                     </View>
                 )}
                 {regularItems.map((item) => (

@@ -1,28 +1,23 @@
 import { TitleText } from '@/components/title-text';
 import { TopBarButton } from '@/components/top-bar-button';
-import { getRoomEmoji } from '@/constants/room-emojis';
 import { NewRoomListItem } from '@/room/component/new-room-list-item';
 import { RoomListItem } from '@/room/component/room-list-item';
+import { useRooms } from '@/room/hooks/use-rooms';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const rooms = [
-    { name: 'Living Room', numOfTask: 4, numOfItems: 8, numOfLowItems: 1 },
-    { name: 'Kitchen', numOfTask: 6, numOfItems: 14, numOfLowItems: 2 },
-    { name: 'Bedroom', numOfTask: 2, numOfItems: 5, numOfLowItems: 0 },
-    { name: 'Bathroom', numOfTask: 3, numOfItems: 7, numOfLowItems: 1 },
-];
 
 export function RoomScreen() {
     const [searchText, setSearchText] = useState('');
+    const { data: rooms, isLoading } = useRooms();
     const isSearching = searchText.trim().length > 0;
     const filteredRooms = useMemo(() => {
         const normalizedSearch = searchText.trim().toLowerCase();
 
         return rooms.filter((room) => room.name.toLowerCase().includes(normalizedSearch));
-    }, [searchText]);
+    }, [rooms, searchText]);
 
     const handleAddRoom = () => router.push('/room-add');
 
@@ -50,11 +45,14 @@ export function RoomScreen() {
 
                 <View className="flex-row flex-wrap gap-3">
                     {filteredRooms.map((room) => (
-                        <View key={room.name} className="w-[48%]">
+                        <View key={room.id} className="w-[48%]">
                             <RoomListItem
-                                {...room}
-                                icon={getRoomEmoji(room.name)}
-                                onPress={() => router.push({ pathname: '/room-detail', params: { roomName: room.name } })}
+                                icon={room.icon}
+                                name={room.name}
+                                numOfItems={room.numOfItems}
+                                numOfLowItems={room.numOfLowItems}
+                                numOfTask={room.numOfTask}
+                                onPress={() => router.push({ pathname: '/room-detail', params: { roomId: room.id, roomName: room.name } })}
                             />
                         </View>
                     ))}
@@ -64,9 +62,9 @@ export function RoomScreen() {
                         </View>
                     )}
                 </View>
-                {filteredRooms.length === 0 && (
+                {filteredRooms.length === 0 && !isLoading && (
                     <Text className="mt-3 rounded-lg border border-dashed border-hairline px-4 py-6 text-center font-sans text-[15px] text-ink-muted">
-                        No rooms match your search.
+                        {isSearching ? 'No rooms match your search.' : 'No rooms yet. Add one to start tracking tasks and items.'}
                     </Text>
                 )}
                 </ScrollView>

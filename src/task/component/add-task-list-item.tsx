@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { InputAccessoryView, Keyboard, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 type IntervalUnit = 'day' | 'week' | 'month' | 'year';
 
@@ -107,10 +107,12 @@ export function AddTaskListItem({
                     <TextInput
                         accessibilityLabel="Interval count"
                         className="h-10 w-16 rounded-input border border-hairline bg-white px-2 text-center font-sans text-[15px] text-ink placeholder:text-ink-faint"
+                        inputAccessoryViewID="repeat-interval-accessory"
                         keyboardType="number-pad"
                         onChangeText={onIntervalCountChange}
-                        onSubmitEditing={onSubmitEditing}
+                        onSubmitEditing={() => Keyboard.dismiss()}
                         placeholder="1"
+                        returnKeyType="done"
                         value={intervalCount}
                     />
                     <View className="flex-1 flex-row gap-1">
@@ -129,6 +131,19 @@ export function AddTaskListItem({
                         ))}
                     </View>
                 </View>
+            )}
+            {Platform.OS === 'ios' && (
+                <InputAccessoryView nativeID="repeat-interval-accessory">
+                    <View className="flex-row justify-end border-t border-hairline bg-white px-4 py-2">
+                        <Pressable
+                            accessibilityRole="button"
+                            className="rounded-button bg-forest px-4 py-2"
+                            onPress={() => Keyboard.dismiss()}
+                        >
+                            <Text className="font-sans-semibold text-[14px] text-white">Done</Text>
+                        </Pressable>
+                    </View>
+                </InputAccessoryView>
             )}
             <Pressable
                 accessibilityRole="button"
