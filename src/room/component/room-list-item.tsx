@@ -1,5 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 
+const count = (value: number, noun: string) => `${value} ${value === 1 ? noun : `${noun}s`}`;
+
 export function RoomListItem({
     icon,
     name,
@@ -18,7 +20,9 @@ export function RoomListItem({
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${name}, ${numOfTask} tasks, ${numOfItems} items, ${numOfLowItems} low items`}
+            accessibilityLabel={[name, count(numOfTask, 'task'), count(numOfItems, 'item'), numOfLowItems > 0 ? count(numOfLowItems, 'low item') : null]
+                .filter(Boolean)
+                .join(', ')}
             className="aspect-square w-full items-start justify-start rounded-card border border-hairline bg-white p-4 shadow-sm"
             onPress={onPress}
         >
@@ -29,11 +33,13 @@ export function RoomListItem({
                 {name}
             </Text>
             <Text className="mt-2 text-sm leading-5 text-ink-muted">
-                {numOfTask} tasks · {numOfItems} items
+                {count(numOfTask, 'task')} · {count(numOfItems, 'item')}
             </Text>
-            <Text className="mt-1 text-sm leading-5 text-clay">
-                {numOfLowItems} low items
-            </Text>
+            {numOfLowItems > 0 ? (
+                <Text className="mt-1 text-sm leading-5 text-clay">
+                    {count(numOfLowItems, 'low item')}
+                </Text>
+            ) : null}
         </Pressable>
     );
 } 

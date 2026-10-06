@@ -21,13 +21,14 @@ const ProjectListCard = ({title, projectStatus, projectStatusTextClass, projectS
   const progress = numberOfTasks > 0
     ? Math.min(100, Math.max(0, (tasksCompleted / numberOfTasks) * 100))
     : 0;
+  const subtitle = [room, dueDate ? `due ${dueDate}` : undefined].filter(Boolean).join(' · ');
 
   return (
-   <Pressable className='flex  flex-col w-full bg-white p-4 m-2 rounded-lg shadow-sm' onPress={onPress}>
+   <Pressable className='flex flex-col w-full bg-white p-4 my-2 rounded-lg shadow-sm' onPress={onPress}>
     <View className='flex w-full flex-row items-center justify-between'>    
     <View className='flex min-w-0 flex-col'> 
      <Text className='text-lg font-ink font-bold'>{title}</Text>
-    <Text className='text-m font-ink'>{room} * due {dueDate}</Text>
+    {subtitle ? <Text className='text-m font-ink'>{subtitle}</Text> : null}
 
    </View>
   <ProjectStatusPill
@@ -48,7 +49,7 @@ const ProjectListCard = ({title, projectStatus, projectStatusTextClass, projectS
 
    <View className='flex flex-row w-full justify-between mt-3'>
     <Text className='text-m font-ink'>Tasks: {tasksCompleted}/{numberOfTasks}</Text>
-    <Text className='text-m font-ink'>Budget: ${spentBudget ?? 0}/${totalBudget ?? 0}</Text>
+    <Text className='text-m font-ink'>Budget: ${(spentBudget ?? 0).toFixed(2)}/${(totalBudget ?? 0).toFixed(2)}</Text>
    </View>
    
    </Pressable>

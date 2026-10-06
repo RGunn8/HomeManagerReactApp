@@ -11,11 +11,12 @@ export function InventoryListItem({ item, onPress }: InventoryListItemProps) {
     const isLow = isInventoryItemLow(item);
     const isLevel = item.trackingMode === 'level';
     const levelLabel = INVENTORY_LEVELS.find((level) => level.id === item.level)?.label ?? 'Full';
+    const location = [...new Set([item.room, item.category].filter(Boolean))].join(' · ');
 
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={isLevel ? `${item.name}, ${levelLabel}, ${item.quantity} spare` : `${item.name}, ${item.quantity} in stock, below par ${item.belowPar}`}
+            accessibilityLabel={isLevel ? `${item.name}, ${levelLabel}, ${item.quantity} spare` : `${item.name}, ${item.quantity} in stock, low at ${item.belowPar}`}
             className="flex-row items-center gap-3 border-b border-row-divider bg-white px-4 py-3"
             onPress={() => onPress(item.id)}
         >
@@ -24,7 +25,7 @@ export function InventoryListItem({ item, onPress }: InventoryListItemProps) {
                 {item.price !== undefined ? (
                     <Text className="font-sans text-[13px] text-ink-muted">${item.price.toFixed(2)} per item</Text>
                 ) : null}
-                <Text className="font-sans text-[13px] text-ink-muted">{item.room} · {item.category}</Text>
+                <Text className="font-sans text-[13px] text-ink-muted">{location}</Text>
                 {item.stores.length > 0 ? (
                     <View className="mt-1 self-start rounded-full bg-sage-tint px-2.5 py-1">
                         <Text className="font-sans-semibold text-[11px] text-forest">
@@ -32,7 +33,7 @@ export function InventoryListItem({ item, onPress }: InventoryListItemProps) {
                         </Text>
                     </View>
                 ) : null}
-                <Text className="font-sans text-[12px] text-ink-faint">{isLevel ? `Level: ${levelLabel}` : `Below par ${item.belowPar}`}</Text>
+                <Text className="font-sans text-[12px] text-ink-faint">{isLevel ? `Level: ${levelLabel}` : `Low at ${item.belowPar}`}</Text>
             </View>
             <View className="items-center gap-1">
                 <Text className={`font-sans-semibold text-[16px] ${isLow ? 'text-overdue' : 'text-ink'}`}>{item.quantity}</Text>
